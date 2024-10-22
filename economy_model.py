@@ -1,6 +1,5 @@
 import mesa
 import numpy as np
-from mesa.space import MultiGrid
 from mesa.time import RandomActivation
 from mesa.datacollection import DataCollector
 from agents.central_bank import CentralBank
@@ -11,14 +10,12 @@ from agents.firm import Firm
 class EconomyModel(mesa.Model):
     def __init__(self, N):
         self.num_agents = N
-        self.grid = MultiGrid(20, 20, True)
         self.schedule = RandomActivation(self)
         self.total_liquidity = 100000
         
         # Initialize Central Bank
         self.central_bank = CentralBank(0, self)
         self.schedule.add(self.central_bank)
-        self.grid.place_agent(self.central_bank, (0, 0))
         
         # Initialize Banks
         self.banks = []
@@ -26,9 +23,6 @@ class EconomyModel(mesa.Model):
             bank = Bank(i, self)
             self.banks.append(bank)
             self.schedule.add(bank)
-            x = self.random.randrange(self.grid.width)
-            y = self.random.randrange(self.grid.height)
-            self.grid.place_agent(bank, (x, y))
         
         # Initialize Households
         self.households = []
@@ -36,9 +30,6 @@ class EconomyModel(mesa.Model):
             household = Household(i, self)
             self.households.append(household)
             self.schedule.add(household)
-            x = self.random.randrange(self.grid.width)
-            y = self.random.randrange(self.grid.height)
-            self.grid.place_agent(household, (x, y))
         
         # Initialize Firms
         self.firms = []
@@ -46,9 +37,6 @@ class EconomyModel(mesa.Model):
             firm = Firm(i, self)
             self.firms.append(firm)
             self.schedule.add(firm)
-            x = self.random.randrange(self.grid.width)
-            y = self.random.randrange(self.grid.height)
-            self.grid.place_agent(firm, (x, y))
 
         # Data Collection
         self.datacollector = DataCollector(

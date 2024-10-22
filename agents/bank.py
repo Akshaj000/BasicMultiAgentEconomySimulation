@@ -15,7 +15,7 @@ class Bank(mesa.Agent):
             self.liquidity += borrowed
             self.model.total_liquidity -= borrowed
 
-    def provide_loans(self):
+    def provide_loans(self): 
         lending_capacity = self.liquidity * 0.8
         for agent in self.model.schedule.agents:
             if isinstance(agent, (Household, Firm)) and lending_capacity > 0:
