@@ -1,4 +1,4 @@
-from .central_bank import CentralBank
+from .bank import CentralBank
 from .firm import Firm
 from .consumer import Consumer
 

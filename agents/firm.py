@@ -1,123 +1,76 @@
+# firm.py
 from mesa import Agent
 import numpy as np
 
 class Firm(Agent):
-    def __init__(self, unique_id, model, initial_capital, initial_inventory, base_price):
+    def __init__(self, unique_id, model, initial_capital, market_volatility):
         super().__init__(unique_id, model)
         self.capital = initial_capital
-        self.inventory = initial_inventory
-        self.price = base_price
+        self.initial_capital = initial_capital
+        self.price = max(1, initial_capital * 0.1)  # Ensure positive price
+        self.production_capacity = max(1, int(initial_capital / 1000))
+        self.inventory = 0
         self.employees = []
-        self.base_salary = 1000  # Base monthly salary per employee
-        self.profit = 0
-        self.valuation = initial_capital
-        self.loan_payment = 0
-        self.production_rate = 100  # Base production per employee
-        
-    def hire_employee(self, consumer):
-        """Hire a consumer if the firm can afford it"""
-        if consumer not in self.employees:
-            self.employees.append(consumer)
-            consumer.employer = self
-            consumer.salary = self.base_salary
-            return True
-        return False
-        
-    def layoff_employee(self, consumer):
-        """Lay off an employee if necessary"""
-        if consumer in self.employees:
-            self.employees.remove(consumer)
-            consumer.employer = None
-            consumer.salary = 0
-            return True
-        return False
-        
-    def adjust_prices(self):
-        """Adjust prices based on supply and demand with more volatility"""
-        total_demand = sum([c.money for c in self.model.get_consumers()]) / self.price
-        supply = self.inventory
-        
-        # Price adjustment factor based on supply-demand ratio
-        adjustment_factor = (total_demand - supply) / max(supply, 1)
-        
-        # Add market sentiment (random factor)
-        market_sentiment = self.model.random.uniform(-0.05, 0.05)
-        
-        # Consider inflation expectations
-        inflation_expectation = max(self.model.central_bank.inflation_rate, 0) / 100
-        
-        # Combine all factors
-        total_adjustment = (adjustment_factor * 0.3 + 
-                        market_sentiment +
-                        inflation_expectation)
-        
-        # Apply the price change with constraints
-        max_adjustment = 0.2  # Maximum 20% price change per step
-        adjustment = np.clip(total_adjustment, -max_adjustment, max_adjustment)
-        self.price *= (1 + adjustment)
-        
-        # Ensure minimum price
-        self.price = max(self.price, 1.0)
-        
-    def produce_goods(self):
-        """Produce new inventory based on number of employees"""
-        production = len(self.employees) * self.production_rate
-        self.inventory += production
-        
-    def pay_salaries(self):
-        """Pay salaries to all employees"""
-        total_salaries = sum(employee.salary for employee in self.employees)
-        
-        if total_salaries > self.capital:
-            # Need to reduce workforce or salaries
-            while total_salaries > self.capital and self.employees:
-                laid_off = self.employees[-1]
-                self.layoff_employee(laid_off)
-                total_salaries = sum(employee.salary for employee in self.employees)
-        
-        self.capital -= total_salaries
-        for employee in self.employees:
-            employee.receive_salary(employee.salary)
-            
-    def adjust_salaries(self):
-        """Adjust salaries based on profitability"""
-        if self.profit > len(self.employees) * self.base_salary * 2:  # Very profitable
-            for employee in self.employees:
-                employee.salary *= 1.1  # 10% raise
-        elif self.profit < 0:  # Losing money
-            for employee in self.employees:
-                employee.salary *= 0.9  # 10% reduction
-                
-    def pay_loan(self, amount):
-        """Pay loan to central bank"""
-        if self.capital >= amount:
-            self.capital -= amount
-            return True
-        return False
-        
-    def sell_goods(self, quantity, buyer):
-        """Sell goods to a consumer"""
-        if quantity <= self.inventory:
-            revenue = quantity * self.price
-            self.inventory -= quantity
-            self.capital += revenue
-            return True
-        return False
-        
-    def calculate_profit(self):
-        """Calculate monthly profit"""
-        total_salaries = sum(employee.salary for employee in self.employees)
-        revenue = self.price * (self.production_rate * len(self.employees) - self.inventory)
-        self.profit = revenue - total_salaries - self.loan_payment
-        self.valuation += self.profit
+        self.loans = []
+        self.market_volatility = market_volatility
+        self.bankrupt = False
+        self.credit_score = 1.0
+        self.wage = 100
+        self.costs_history = []
         
     def step(self):
-        """Monthly actions of the firm"""
-        self.produce_goods()
-        self.adjust_prices()
-        self.pay_salaries()
-        self.calculate_profit()
-        self.adjust_salaries()
-
-    # Update the adjust_prices method in the Firm class
-
+        if not self.bankrupt:
+            self.adjust_price()
+            self.produce()
+            self.pay_wages()
+            self.service_loans()
+            self.update_credit_score()
+    
+    def adjust_price(self):
+        # Dynamic price adjustment based on inventory and market conditions
+        inventory_factor = max(0.8, min(1.2, 1 - (self.inventory / (self.production_capacity * 2))))
+        volatility_factor = 1 + (np.random.random() - 0.5) * self.market_volatility
+        self.price = max(1, self.price * inventory_factor * volatility_factor)
+    
+    def produce(self):
+        labor_cost = sum(self.wage for _ in self.employees)
+        material_cost = self.production_capacity * 50
+        total_cost = labor_cost + material_cost
+        
+        if total_cost > self.capital:
+            self.production_capacity = max(1, int(self.capital / (labor_cost + 50)))
+            total_cost = self.production_capacity * 50 + labor_cost
+            
+        self.capital -= total_cost
+        self.inventory += self.production_capacity
+        self.costs_history.append(total_cost)
+        if len(self.costs_history) > 12:
+            self.costs_history.pop(0)
+    
+    def pay_wages(self):
+        total_wages = sum(self.wage for _ in self.employees)
+        if total_wages > self.capital:
+            self.bankrupt = True
+            for employee in self.employees:
+                employee.employer = None
+            self.employees.clear()
+            return
+            
+        for employee in self.employees:
+            self.capital -= self.wage
+            employee.money += self.wage
+    
+    def service_loans(self):
+        for loan in self.loans[:]:  # Create copy to allow modification during iteration
+            amount, rate = loan
+            interest_payment = amount * rate
+            if interest_payment > self.capital:
+                self.bankrupt = True
+                return
+            self.capital -= interest_payment
+    
+    def update_credit_score(self):
+        # More sophisticated credit score calculation
+        capital_ratio = self.capital / self.initial_capital
+        cost_stability = np.std(self.costs_history) / np.mean(self.costs_history) if self.costs_history else 1
+        self.credit_score = max(0, min(1, capital_ratio * (1 - cost_stability)))

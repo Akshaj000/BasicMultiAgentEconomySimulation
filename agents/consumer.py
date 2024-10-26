@@ -1,80 +1,87 @@
+# model.py
 from mesa import Agent
 import numpy as np
+from agents.firm import Firm
 
 class Consumer(Agent):
-    def __init__(self, unique_id, model, initial_money):
+    def __init__(self, unique_id, model, initial_money, satisfaction_threshold):
         super().__init__(unique_id, model)
         self.money = initial_money
-        self.salary = 0
+        self.initial_money = initial_money
         self.employer = None
-        self.loan_payment = 0
-        self.satisfaction = 100  # Scale of 0-100
-        self.monthly_needs = 500  # Minimum monthly consumption needed
-        
-    def receive_salary(self, amount):
-        """Receive monthly salary"""
-        self.money += amount
-        
-    def pay_loan(self, amount):
-        """Pay monthly loan payment"""
-        if self.money >= amount:
-            self.money -= amount
-            self.loan_payment = amount
-            return True
-        return False
-        
-    def request_loan(self, amount, term_months):
-        """Request a loan from the central bank"""
-        central_bank = self.model.get_central_bank()
-        if self.salary > 0:  # Must be employed to get a loan
-            max_affordable_payment = self.salary * 0.3  # 30% of salary
-            loan_amount, monthly_payment = central_bank.grant_loan(self, amount, term_months)
-            
-            if monthly_payment <= max_affordable_payment:
-                self.money += loan_amount
-                self.loan_payment = monthly_payment
-                return True
-        return False
-        
-    def buy_goods(self):
-        """Buy goods from firms"""
-        firms = self.model.get_firms()
-        if not firms:
-            return
-            
-        # Try to buy needed goods
-        money_for_goods = min(self.money, self.monthly_needs * 1.5)  # Will spend up to 150% of needs if has money
-        
-        # Find cheapest firm
-        firms_with_inventory = [f for f in firms if f.inventory > 0]
-        if not firms_with_inventory:
-            return
-            
-        chosen_firm = min(firms_with_inventory, key=lambda x: x.price)
-        quantity = money_for_goods / chosen_firm.price
-        
-        if chosen_firm.sell_goods(quantity, self):
-            self.money -= quantity * chosen_firm.price
-            
-    def calculate_satisfaction(self):
-        """Calculate satisfaction based on financial situation"""
-        # Factors affecting satisfaction:
-        # 1. Having a job
-        # 2. Money after expenses
-        # 3. Ability to meet monthly needs
-        
-        base_satisfaction = 50  # Base satisfaction level
-        
-        # Employment factor (±30 points)
-        employment_factor = 30 if self.employer else -30
-        
-        # Financial factor (±20 points)
-        money_after_expenses = self.money - self.monthly_needs - self.loan_payment
-        financial_factor = np.clip(money_after_expenses / self.monthly_needs * 20, -20, 20)
-        
-        self.satisfaction = np.clip(base_satisfaction + employment_factor + financial_factor, 0, 100)
-        
+        self.satisfaction = 1.0
+        self.loans = []
+        self.bankrupt = False
+        self.credit_score = 1.0
+        self.satisfaction_threshold = satisfaction_threshold
+        self.current_firm = None
+        self.purchase_history = []
+    
     def step(self):
-        """Monthly actions of the consumer"""
-        self.buy_goods()
-        self.calculate_satisfaction()
+        if not self.bankrupt:
+            self.make_purchase_decision()
+            self.service_loans()
+            self.update_credit_score()
+    
+    def make_purchase_decision(self):
+        firms = [agent for agent in self.model.schedule.agents 
+                if isinstance(agent, Firm) and not agent.bankrupt and agent.inventory > 0]
+        
+        if not firms:
+            self.satisfaction *= 0.95  # Decrease satisfaction when no goods available
+            return
+            
+        affordable_firms = [firm for firm in firms if firm.price <= self.money]
+        if not affordable_firms:
+            self.satisfaction *= 0.9  # Decrease satisfaction when can't afford goods
+            return
+            
+        weights = []
+        for firm in affordable_firms:
+            price_factor = 1 / (firm.price + 1)
+            satisfaction_factor = self.satisfaction if firm == self.current_firm else 0.8
+            inventory_factor = min(1, firm.inventory / firm.production_capacity)
+            weights.append(price_factor * satisfaction_factor * inventory_factor)
+        
+        weights = np.array(weights) / sum(weights)
+        chosen_firm = np.random.choice(affordable_firms, p=weights)
+        self.make_purchase(chosen_firm)
+    
+    def make_purchase(self, firm):
+        if firm.inventory <= 0 or firm.price > self.money:
+            self.satisfaction *= 0.9
+            return
+            
+        self.money -= firm.price
+        firm.capital += firm.price
+        firm.inventory -= 1
+        
+        # Record purchase for credit score calculation
+        self.purchase_history.append(firm.price)
+        if len(self.purchase_history) > 12:
+            self.purchase_history.pop(0)
+        
+        # More nuanced satisfaction adjustment
+        price_satisfaction = 1 - (firm.price / self.initial_money)
+        inventory_satisfaction = min(1, firm.inventory / firm.production_capacity)
+        self.satisfaction = 0.8 * self.satisfaction + 0.2 * (price_satisfaction * inventory_satisfaction)
+        self.current_firm = firm
+    
+    def service_loans(self):
+        for loan in self.loans[:]:  # Create copy to allow modification during iteration
+            amount, rate = loan
+            interest_payment = amount * rate
+            if interest_payment > self.money:
+                self.bankrupt = True
+                if self.employer:
+                    self.employer.employees.remove(self)
+                    self.employer = None
+                return
+            self.money -= interest_payment
+    
+    def update_credit_score(self):
+        # More sophisticated credit score calculation
+        money_ratio = self.money / self.initial_money
+        purchase_stability = np.std(self.purchase_history) / np.mean(self.purchase_history) if self.purchase_history else 1
+        employment_factor = 1.2 if self.employer else 0.8
+        self.credit_score = max(0, min(1, money_ratio * employment_factor * (1 - purchase_stability)))
