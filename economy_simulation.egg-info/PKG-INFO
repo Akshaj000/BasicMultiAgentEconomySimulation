@@ -1,0 +1,8 @@
+Metadata-Version: 2.1
+Name: economy_simulation
+Version: 0.1
+Requires-Dist: mesa>=1.0.0
+Requires-Dist: matplotlib>=3.5.0
+Requires-Dist: numpy>=1.21.0
+Requires-Dist: pandas>=1.3.0
+Requires-Dist: ipython>=7.0.0
