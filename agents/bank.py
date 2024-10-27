@@ -3,6 +3,7 @@ from mesa import Agent
 import numpy as np
 from agents.firm import Firm
 from agents.consumer import Consumer
+from transactions import Transaction
 
 class CentralBank(Agent):
     def __init__(self, unique_id, model, initial_money_supply, base_interest_rate):
@@ -29,6 +30,8 @@ class CentralBank(Agent):
         self.total_loans += amount
         self.money_supply -= amount  # Money is lent out, so decrease supply
         agent.loans.append((amount, interest_rate))
+        transaction = Transaction(self, agent, amount, 'loan')
+        self.model.add_transaction(transaction)
         return True, interest_rate
 
     def lend_to_agents(self):
