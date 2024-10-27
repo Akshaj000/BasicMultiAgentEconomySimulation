@@ -1,6 +1,7 @@
 # bank.py
 from mesa import Agent
 from agents.consumer import Consumer
+from transactions import Transaction
 
 class CentralBank(Agent):
     def __init__(self, unique_id, model, initial_money_supply, base_interest_rate):
@@ -10,7 +11,23 @@ class CentralBank(Agent):
         self.total_loans = 0
         self.bankrupted_firms = 0
         self.bankrupted_consumers = 0
-        self.inflation_rate = 0
+        self.price_history = []
+        
+    def step(self):
+        self.lend_to_agents()
+        
+    def calculate_loan_interest_rate(self, credit_score):
+        return max(0.01, self.base_interest_rate * (2 - credit_score))
+    
+    def approve_loan(self, agent, amount):
+        if amount > self.money_supply * 0.1:  # Limit loan to 10% of money supply
+            return False, 0
+        
+        interest_rate = self.calculate_loan_interest_rate(agent.credit_score)
+        self.total_loans += amount
+        self.money_supply -= amount  # Money is lent out, so decrease supply
+        agent.loans.append((amount, interest_rate))
+        return True, interest_rate
 
     def lend_to_agents(self):
         for agent in self.model.schedule.agents:
