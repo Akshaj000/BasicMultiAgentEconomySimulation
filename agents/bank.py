@@ -68,3 +68,4 @@ class CentralBank(Agent):
         self.price_history.append(current_prices)
         if len(self.price_history) > 12:
             self.price_history.pop(0)
+

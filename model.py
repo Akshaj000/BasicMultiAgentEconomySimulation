@@ -5,6 +5,9 @@ from mesa.space import MultiGrid
 from mesa.datacollection import DataCollector
 import numpy as np
 from agents import Firm, CentralBank, Consumer
+import plotly.graph_objects as go
+import networkx as nx
+
 
 class EconomyModel(Model):
     def __init__(self, num_consumers, num_firms, initial_money_supply, base_interest_rate,
@@ -16,10 +19,13 @@ class EconomyModel(Model):
         self.grid = MultiGrid(width, height, True)
         self.schedule = RandomActivation(self)
         self.bankruptcy_threshold = bankruptcy_threshold
+        self.transactions = []
+        self.G = nx.DiGraph()
         
         # Create Central Bank
         self.central_bank = CentralBank(0, self, initial_money_supply, base_interest_rate)
         self.schedule.add(self.central_bank)
+        self.G.add_node(0, type="bank")
         
         # Create Firms
         for i in range(num_firms):
@@ -28,6 +34,7 @@ class EconomyModel(Model):
             x = self.random.randrange(self.grid.width)
             y = self.random.randrange(self.grid.height)
             self.grid.place_agent(firm, (x, y))
+            self.G.add_node(firm.unique_id, type="firm")
         
         # Create Consumers
         for i in range(num_consumers):
@@ -36,6 +43,7 @@ class EconomyModel(Model):
             x = self.random.randrange(self.grid.width)
             y = self.random.randrange(self.grid.height)
             self.grid.place_agent(consumer, (x, y))
+            self.G.add_node(consumer.unique_id, type="consumer")
         
         self.distribute_employment()
         
@@ -51,10 +59,31 @@ class EconomyModel(Model):
                 "Total Loans": lambda m: m.central_bank.total_loans,
                 "Average Price": self.get_average_price,
                 "Average Credit Score": self.get_average_credit_score,
-                "Economic Health Index": self.get_economic_health_index
+                "Economic Health Index": self.get_economic_health_index,
             }
         )
-    
+
+    def add_transaction(self, transaction):
+        self.transactions.append(transaction)
+        self.G.add_edges_from([(transaction.sender.unique_id, transaction.receiver.unique_id, 
+                                {"amount": transaction.amount, "transactions": transaction.transaction_type})])
+
+
+    def get_graph_data(self):
+        # Prepare data for Plotly visualization
+        edges = self.G.edges(data=True)
+        x = []
+        y = []
+        text = []
+        
+        for edge in edges:
+            x.append(edge[0])  # sender
+            y.append(edge[1])  # receiver
+            text.append(f"Amount: {edge[2]['amount']}")
+        
+        return x, y, text
+
+
     def step(self):
         self.schedule.step()
         self.central_bank.update_inflation_rate([agent.price for agent in self.schedule.agents 
@@ -62,6 +91,9 @@ class EconomyModel(Model):
         self.check_bankruptcies()
         self.distribute_employment()
         self.datacollector.collect(self)
+
+    def get_total_transactions(self):
+        return len(self.transactions)
     
     def distribute_employment(self):
         available_consumers = [agent for agent in self.schedule.agents 
