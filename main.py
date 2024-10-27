@@ -1,9 +1,52 @@
 # server.py
 from mesa.visualization.ModularVisualization import ModularServer
-from mesa.visualization.modules import ChartModule, CanvasGrid
+from mesa.visualization.modules import ChartModule, CanvasGrid, TextElement
 from mesa.visualization.UserParam import Slider
 from agents import Firm, CentralBank, Consumer
 from model import EconomyModel
+import numpy as np
+from mesa.visualization.modules import NetworkModule
+
+def network_portrayal(G):
+    portrayal = {
+        "nodes": [],
+        "edges": []
+    }
+    
+    # Add nodes
+    for node in G.nodes():
+        node_type = G.nodes[node]["type"]
+        color = "blue" if node_type == "firm" else "green" if node_type == "consumer" else "red"
+        size = 6 if node_type == "firm" else 4 if node_type == "consumer" else 8
+        
+        portrayal["nodes"].append({
+            "id": node,
+            "size": size,
+            "color": "gray" if G.nodes[node].get("bankrupt", False) else color,
+            "label": G.nodes[node]["type"]
+        })
+    
+    # Add edges with arrowheads
+    for edge in G.edges(data=True):
+        source, target, data = edge        
+        edge_color = "#666666"
+        
+        if "purchase" in data["transactions"]:
+            edge_color = "#00ff00"
+        elif "wage" in data["transactions"]:
+            edge_color = "#0000ff" 
+        elif "loan" in data["transactions"]:
+            edge_color = "#ff0000"
+        
+        portrayal["edges"].append({
+            "source": source,
+            "target": target,
+            "color": edge_color,
+            "arrow": True
+        })
+    
+    return portrayal
+
 
 def agent_portrayal(agent):
     portrayal = {"Shape": "circle", "Filled": "true", "r": 0.5}
@@ -33,7 +76,7 @@ def agent_portrayal(agent):
     return portrayal
 
 # Create canvas element with improved resolution
-grid = CanvasGrid(agent_portrayal, 20, 20, 600, 600)
+grid = CanvasGrid(agent_portrayal, 20, 20, 800, 800)
 
 # Create enhanced charts with better organization
 charts = [
@@ -62,6 +105,7 @@ charts = [
         {"Label": "Bankrupted Consumers", "Color": "gray"}
     ], data_collector_name="datacollector")
 ]
+
 
 # Enhanced model parameters with better defaults and ranges
 model_params = {
@@ -103,10 +147,12 @@ model_params = {
     )
 }
 
+network = NetworkModule(network_portrayal, 800, 800)
+
 # Create server with modified title
 server = ModularServer(
     EconomyModel,
-    [grid] + charts,
+    [grid, network] + charts,
     "Advanced Economy Simulation",
     model_params
 )

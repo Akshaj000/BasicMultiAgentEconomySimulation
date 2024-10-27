@@ -49,3 +49,7 @@ class CentralBank(Agent):
         if len(self.price_history) > 12:
             self.price_history.pop(0)
 
+    def step(self):
+        current_prices = [agent.price for agent in self.model.schedule.agents if hasattr(agent, 'price')]
+        self.update_inflation_rate(current_prices)
+

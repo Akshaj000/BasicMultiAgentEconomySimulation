@@ -1,6 +1,7 @@
 # firm.py
 from mesa import Agent
 import numpy as np
+from transactions import Transaction
 
 class Firm(Agent):
     def __init__(self, unique_id, model, initial_capital, market_volatility):
@@ -59,6 +60,8 @@ class Firm(Agent):
         for employee in self.employees:
             self.capital -= self.wage
             employee.money += self.wage
+            transaction = Transaction(self, employee, self.wage, 'wage')
+            self.model.add_transaction(transaction)
     
     def service_loans(self):
         for loan in self.loans[:]:  # Create copy to allow modification during iteration

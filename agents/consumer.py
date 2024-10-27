@@ -2,6 +2,7 @@
 from mesa import Agent
 import numpy as np
 from agents.firm import Firm
+from transactions import Transaction
 
 class Consumer(Agent):
     def __init__(self, unique_id, model, initial_money, satisfaction_threshold):
@@ -55,6 +56,10 @@ class Consumer(Agent):
         self.money -= firm.price
         firm.capital += firm.price
         firm.inventory -= 1
+
+        transaction = Transaction(self, firm, firm.price, 'purchase')
+        self.model.add_transaction(transaction)
+
         
         # Record purchase for credit score calculation
         self.purchase_history.append(firm.price)
