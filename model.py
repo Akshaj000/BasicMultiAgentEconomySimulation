@@ -5,9 +5,7 @@ from mesa.space import MultiGrid
 from mesa.datacollection import DataCollector
 import numpy as np
 from agents import Firm, CentralBank, Consumer
-import plotly.graph_objects as go
 import networkx as nx
-
 
 class EconomyModel(Model):
     def __init__(self, num_consumers, num_firms, initial_money_supply, base_interest_rate,
@@ -57,9 +55,8 @@ class EconomyModel(Model):
                 "Bankrupted Consumers": lambda m: m.central_bank.bankrupted_consumers,
                 "Money Supply": lambda m: m.central_bank.money_supply,
                 "Total Loans": lambda m: m.central_bank.total_loans,
-                "Average Price": self.get_average_price,
-                "Average Credit Score": self.get_average_credit_score,
-                "Economic Health Index": self.get_economic_health_index,
+                "Average Price": lambda m: self.get_average_price(),
+                "Economic Health Index": lambda m: self.get_economic_health_index(),
             }
         )
 
@@ -67,7 +64,6 @@ class EconomyModel(Model):
         self.transactions.append(transaction)
         self.G.add_edges_from([(transaction.sender.unique_id, transaction.receiver.unique_id, 
                                 {"amount": transaction.amount, "transactions": transaction.transaction_type})])
-
 
     def get_graph_data(self):
         # Prepare data for Plotly visualization
@@ -83,40 +79,70 @@ class EconomyModel(Model):
         
         return x, y, text
 
-
+    # model.py
     def step(self):
         self.schedule.step()
+        
+        # Update inflation rate
         self.central_bank.update_inflation_rate([agent.price for agent in self.schedule.agents 
-                                               if isinstance(agent, Firm) and not agent.bankrupt])
+                                                if isinstance(agent, Firm) and not agent.bankrupt])
+        
+        # Check bankruptcies
         self.check_bankruptcies()
+        
+        # Distribute employment
         self.distribute_employment()
+        
+        # Firms that are at risk of bankruptcy can request loans
+        for agent in self.schedule.agents:
+            if isinstance(agent, Firm) and not agent.bankrupt:
+                if agent.capital < agent.initial_capital * self.bankruptcy_threshold:
+                    agent.request_loan(50000)  # Example loan amount
+
         self.datacollector.collect(self)
+
 
     def get_total_transactions(self):
         return len(self.transactions)
     
-    def distribute_employment(self):
+    def distribute_employment(self, initial_employment_rate=0.6):
+    # Limit initial employment to a fixed percentage
         available_consumers = [agent for agent in self.schedule.agents 
-                             if isinstance(agent, Consumer) and not agent.employer and not agent.bankrupt]
-        
+                            if isinstance(agent, Consumer) and not agent.bankrupt]
         active_firms = [agent for agent in self.schedule.agents 
-                       if isinstance(agent, Firm) and not agent.bankrupt]
-        
+                        if isinstance(agent, Firm) and not agent.bankrupt]
+
         active_firms.sort(key=lambda x: x.capital, reverse=True)
         
+        # Calculate initial employment target based on rate
+        initial_employment_target = int(initial_employment_rate * len(available_consumers))
+        currently_employed = 0
+        
         for firm in active_firms:
+            # Determine max number of employees firm can support based on capital and production capacity
             max_employees = min(
                 firm.production_capacity,
                 int(firm.capital / (firm.wage * 3))
             )
             
-            needed_employees = max_employees - len(firm.employees)
-            if needed_employees > 0:
-                available_consumers.sort(key=lambda x: x.credit_score, reverse=True)
-                for _ in range(min(needed_employees, len(available_consumers))):
+            # Determine needed employees while respecting the initial employment target
+            needed_employees = max(0, max_employees - len(firm.employees))
+            new_hires = min(needed_employees, initial_employment_target - currently_employed, len(available_consumers))
+            
+            # Hire new employees based on available slots and the initial employment target
+            for _ in range(new_hires):
+                if available_consumers:
                     consumer = available_consumers.pop(0)
                     consumer.employer = firm
                     firm.employees.append(consumer)
+                    currently_employed += 1
+                else:
+                    break  # Exit if no more available consumers
+
+            # If the initial employment target has been met, stop
+            if currently_employed >= initial_employment_target:
+                break
+
     
     def check_bankruptcies(self):
         for agent in self.schedule.agents:
@@ -156,29 +182,18 @@ class EconomyModel(Model):
         if not active_firms:
             return 0
         return sum(f.price for f in active_firms) / len(active_firms)
-    
-    def get_average_credit_score(self):
-        active_agents = [agent for agent in self.schedule.agents 
-                        if (isinstance(agent, (Consumer, Firm)) and 
-                            not agent.bankrupt)]
-        if not active_agents:
-            return 0
-        return sum(a.credit_score for a in active_agents) / len(active_agents)
-    
+
     def get_economic_health_index(self):
         employment_weight = 0.3
         satisfaction_weight = 0.2
-        credit_weight = 0.2
-        bankruptcy_weight = 0.3
+        bankruptcy_weight = 0.5  # Adjusted to emphasize bankruptcy in index
         
         employment_rate = self.get_employment_rate()
         satisfaction = self.get_average_satisfaction()
-        credit_score = self.get_average_credit_score()
         
         total_agents = self.num_consumers + self.num_firms
         bankruptcy_rate = 1 - ((self.central_bank.bankrupted_firms + self.central_bank.bankrupted_consumers) / total_agents)
         
         return (employment_rate * employment_weight +
                 satisfaction * satisfaction_weight +
-                credit_score * credit_weight +
                 bankruptcy_rate * bankruptcy_weight)

@@ -1,7 +1,5 @@
 # consumer.py
 from mesa import Agent
-import numpy as np
-from agents.firm import Firm
 from transactions import Transaction
 
 class Consumer(Agent):
@@ -9,81 +7,90 @@ class Consumer(Agent):
         super().__init__(unique_id, model)
         self.money = initial_money
         self.initial_money = initial_money
-        self.employer = None
-        self.satisfaction = 1.0
-        self.loans = []
-        self.bankrupt = False
-        self.credit_score = 1.0
         self.satisfaction_threshold = satisfaction_threshold
-        self.current_firm = None
-        self.purchase_history = []
-    
+        self.employer = None
+        self.bankrupt = False
+        self.loans = []  # Keep track of loans
+        self.satisfaction = 1.0  # Satisfaction level (1.0 = fully satisfied)
+        self.debt = 0  # Initialize debt
+
     def step(self):
         if not self.bankrupt:
-            self.make_purchase_decision()
+            self.make_purchase()
+            self.update_satisfaction()
             self.service_loans()
-            self.update_credit_score()
-    
-    def make_purchase_decision(self):
-        firms = [agent for agent in self.model.schedule.agents 
-                if isinstance(agent, Firm) and not agent.bankrupt and agent.inventory > 0]
-        
-        if not firms:
-            self.satisfaction *= 0.95
-            return
-            
-        affordable_firms = [firm for firm in firms if firm.price <= self.money]
-        if not affordable_firms:
-            self.satisfaction *= 0.9
-            return
-            
-        weights = []
-        for firm in affordable_firms:
-            price_factor = 1 / (firm.price + 1)
-            satisfaction_factor = self.satisfaction if firm == self.current_firm else 0.8
-            inventory_factor = min(1, firm.inventory / firm.production_capacity)
-            weights.append(price_factor * satisfaction_factor * inventory_factor)
-        
-        weights = np.array(weights) / sum(weights)
-        chosen_firm = np.random.choice(affordable_firms, p=weights)
-        self.make_purchase(chosen_firm)
-    
-    def make_purchase(self, firm):
-        if firm.inventory <= 0 or firm.price > self.money:
-            self.satisfaction *= 0.9
-            return
-            
-        self.money -= firm.price
-        firm.capital += firm.price
-        firm.inventory -= 1
 
-        transaction = Transaction(self, firm, firm.price, 'purchase')
-        self.model.add_transaction(transaction)
+    def make_purchase(self):
+        # Simulate making a purchase
+        if self.employer:
+            purchase_amount = min(self.money, self.employer.price)
+            if purchase_amount > 0:
+                self.money -= purchase_amount
+                transaction = Transaction(self.employer, self, purchase_amount, 'purchase')
+                self.model.add_transaction(transaction)
 
+    def calculate_needed_capital(self):
+        # Get the average price of goods from the model
+        average_price = self.model.get_average_price()
         
-        self.purchase_history.append(firm.price)
-        if len(self.purchase_history) > 12:
-            self.purchase_history.pop(0)
+        # Determine if the consumer is employed and their current satisfaction level
+        employment_factor = 0.5 if self.employer else 1.5  # Employed consumers need less capital
+        satisfaction_factor = 1 - self.satisfaction  # Dissatisfied consumers need more capital
         
-        price_satisfaction = 1 - (firm.price / self.initial_money)
-        inventory_satisfaction = min(1, firm.inventory / firm.production_capacity)
-        self.satisfaction = 0.8 * self.satisfaction + 0.2 * (price_satisfaction * inventory_satisfaction)
-        self.current_firm = firm
+        # Calculate needed capital based on average price, employment status, and satisfaction
+        needed_capital = (average_price * 10) * employment_factor * (1 + satisfaction_factor)  # Example calculation
+        return max(needed_capital, 0)  # Ensure it's not negative
+
+    def update_satisfaction(self):
+        # Satisfaction decreases if money is low or if no purchases were made
+        if self.money < self.initial_money * self.satisfaction_threshold:
+            self.satisfaction -= 0.1  # Decrease satisfaction
+        else:
+            self.satisfaction += 0.05  # Increase satisfaction
+        self.satisfaction = max(0, min(1, self.satisfaction))  # Keep it within bounds
+
+    def get_borrowing_limit(self):
+        # Define a borrowing limit based on current money and satisfaction level.
+        max_borrowing_factor = 2.0  # Example factor
+        return (self.money * max_borrowing_factor) - self.debt  # Return remaining borrowing capacity
     
     def service_loans(self):
-        for loan in self.loans[:]:
-            amount, rate = loan
-            interest_payment = amount * rate
-            if interest_payment > self.money:
-                self.bankrupt = True
-                if self.employer:
-                    self.employer.employees.remove(self)
-                    self.employer = None
-                return
-            self.money -= interest_payment
-    
-    def update_credit_score(self):
-        money_ratio = self.money / self.initial_money
-        purchase_stability = np.std(self.purchase_history) / np.mean(self.purchase_history) if self.purchase_history else 1
-        employment_factor = 1.2 if self.employer else 0.8
-        self.credit_score = max(0, min(1, money_ratio * employment_factor * (1 - purchase_stability)))
+        # Check if the consumer can pay for basic expenditures first
+        basic_expenditure = self.calculate_needed_capital()  # Use your existing method to determine needed capital for expenses
+        
+        if self.money < basic_expenditure:
+            # Request a loan if they can't cover basic expenditures
+            loan_needed = basic_expenditure - self.money
+            if loan_needed > self.get_borrowing_limit():  # Check if the loan needed is within borrowing limit
+                loan_needed = self.get_borrowing_limit()  # Cap it at borrowing limit
+            if self.request_loan(loan_needed):  # Attempt to request the loan
+                print(f"Consumer {self.unique_id} requested loan: {loan_needed}")
+        else:
+            # If they can cover expenditures, handle existing loans
+            for loan in self.loans[:]:
+                amount, rate = loan
+                interest_payment = amount * rate
+
+                if interest_payment > self.money:  # Check if they can pay interest
+                    print(f"Consumer {self.unique_id} unable to pay interest, going bankrupt.")
+                    self.bankrupt = True
+                    return
+                else:
+                    self.money -= interest_payment  # Pay the interest
+                    self.debt = max(0,self.debt-interest_payment)  # Decrease debt
+                    self.model.central_bank.money_supply += interest_payment  # Add payment back to bank's supply
+                    print(f"Consumer {self.unique_id} repaid interest: {interest_payment}")
+
+    def request_loan(self, amount):
+        # Ensure the loan request is reasonable and the bank has enough funds
+        if amount > 0 and amount <= self.get_borrowing_limit():
+            approved, interest_rate = self.model.central_bank.approve_loan(self, amount)
+            if approved:
+                self.money += amount
+                self.debt += amount
+                self.model.central_bank.money_supply -= amount
+                print(f"Loan approved for Consumer {self.unique_id}: Amount={amount}, Rate={interest_rate}")
+                self.loans.append((amount, interest_rate))
+                return True
+        print(f"Loan request denied for Consumer {self.unique_id}: Requested={amount}")
+        return False
