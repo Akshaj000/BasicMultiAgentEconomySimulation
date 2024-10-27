@@ -7,7 +7,7 @@ class Firm(Agent):
         super().__init__(unique_id, model)
         self.capital = initial_capital
         self.initial_capital = initial_capital
-        self.price = max(1, initial_capital * 0.1)  # Ensure positive price
+        self.price = max(1, initial_capital * 0.1)
         self.production_capacity = max(1, int(initial_capital / 1000))
         self.inventory = 0
         self.employees = []
@@ -27,7 +27,6 @@ class Firm(Agent):
             self.update_credit_score()
     
     def adjust_price(self):
-        # Dynamic price adjustment based on inventory and market conditions
         inventory_factor = max(0.8, min(1.2, 1 - (self.inventory / (self.production_capacity * 2))))
         volatility_factor = 1 + (np.random.random() - 0.5) * self.market_volatility
         self.price = max(1, self.price * inventory_factor * volatility_factor)
@@ -61,7 +60,7 @@ class Firm(Agent):
             employee.money += self.wage
     
     def service_loans(self):
-        for loan in self.loans[:]:  # Create copy to allow modification during iteration
+        for loan in self.loans[:]:
             amount, rate = loan
             interest_payment = amount * rate
             if interest_payment > self.capital:
@@ -70,7 +69,6 @@ class Firm(Agent):
             self.capital -= interest_payment
     
     def update_credit_score(self):
-        # More sophisticated credit score calculation
         capital_ratio = self.capital / self.initial_capital
         cost_stability = np.std(self.costs_history) / np.mean(self.costs_history) if self.costs_history else 1
         self.credit_score = max(0, min(1, capital_ratio * (1 - cost_stability)))

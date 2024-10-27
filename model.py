@@ -70,7 +70,6 @@ class EconomyModel(Model):
         active_firms = [agent for agent in self.schedule.agents 
                        if isinstance(agent, Firm) and not agent.bankrupt]
         
-        # Sort firms by capital to give priority to stronger firms
         active_firms.sort(key=lambda x: x.capital, reverse=True)
         
         for firm in active_firms:
@@ -81,7 +80,6 @@ class EconomyModel(Model):
             
             needed_employees = max_employees - len(firm.employees)
             if needed_employees > 0:
-                # Sort available consumers by credit score
                 available_consumers.sort(key=lambda x: x.credit_score, reverse=True)
                 for _ in range(min(needed_employees, len(available_consumers))):
                     consumer = available_consumers.pop(0)
@@ -136,7 +134,6 @@ class EconomyModel(Model):
         return sum(a.credit_score for a in active_agents) / len(active_agents)
     
     def get_economic_health_index(self):
-        # Composite index of various economic indicators
         employment_weight = 0.3
         satisfaction_weight = 0.2
         credit_weight = 0.2

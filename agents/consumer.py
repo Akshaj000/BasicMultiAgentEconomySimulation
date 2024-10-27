@@ -1,4 +1,4 @@
-# model.py
+# consumer.py
 from mesa import Agent
 import numpy as np
 from agents.firm import Firm
@@ -28,12 +28,12 @@ class Consumer(Agent):
                 if isinstance(agent, Firm) and not agent.bankrupt and agent.inventory > 0]
         
         if not firms:
-            self.satisfaction *= 0.95  # Decrease satisfaction when no goods available
+            self.satisfaction *= 0.95
             return
             
         affordable_firms = [firm for firm in firms if firm.price <= self.money]
         if not affordable_firms:
-            self.satisfaction *= 0.9  # Decrease satisfaction when can't afford goods
+            self.satisfaction *= 0.9
             return
             
         weights = []
@@ -56,19 +56,17 @@ class Consumer(Agent):
         firm.capital += firm.price
         firm.inventory -= 1
         
-        # Record purchase for credit score calculation
         self.purchase_history.append(firm.price)
         if len(self.purchase_history) > 12:
             self.purchase_history.pop(0)
         
-        # More nuanced satisfaction adjustment
         price_satisfaction = 1 - (firm.price / self.initial_money)
         inventory_satisfaction = min(1, firm.inventory / firm.production_capacity)
         self.satisfaction = 0.8 * self.satisfaction + 0.2 * (price_satisfaction * inventory_satisfaction)
         self.current_firm = firm
     
     def service_loans(self):
-        for loan in self.loans[:]:  # Create copy to allow modification during iteration
+        for loan in self.loans[:]:
             amount, rate = loan
             interest_payment = amount * rate
             if interest_payment > self.money:
@@ -80,7 +78,6 @@ class Consumer(Agent):
             self.money -= interest_payment
     
     def update_credit_score(self):
-        # More sophisticated credit score calculation
         money_ratio = self.money / self.initial_money
         purchase_stability = np.std(self.purchase_history) / np.mean(self.purchase_history) if self.purchase_history else 1
         employment_factor = 1.2 if self.employer else 0.8

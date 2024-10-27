@@ -1,4 +1,4 @@
-# server.py
+# main.py
 from mesa.visualization.ModularVisualization import ModularServer
 from mesa.visualization.modules import ChartModule, CanvasGrid
 from mesa.visualization.UserParam import Slider
@@ -13,7 +13,6 @@ def agent_portrayal(agent):
             portrayal["Color"] = "darkred"
             portrayal["r"] = 0.3
         else:
-            # Color intensity based on capital health
             capital_ratio = agent.capital / agent.initial_capital
             blue_intensity = max(0, min(255, int(capital_ratio * 255)))
             portrayal["Color"] = f"rgb(0,0,{blue_intensity})"
@@ -24,7 +23,6 @@ def agent_portrayal(agent):
             portrayal["Color"] = "gray"
             portrayal["r"] = 0.3
         else:
-            # Color intensity based on money health
             money_ratio = agent.money / agent.initial_money
             green_intensity = max(0, min(255, int(money_ratio * 255)))
             portrayal["Color"] = f"rgb(0,{green_intensity},0)"
@@ -32,10 +30,8 @@ def agent_portrayal(agent):
     
     return portrayal
 
-# Create canvas element with improved resolution
 grid = CanvasGrid(agent_portrayal, 20, 20, 600, 600)
 
-# Create enhanced charts with better organization
 charts = [
     ChartModule([
         {"Label": "Economic Health Index", "Color": "black"}
@@ -63,7 +59,6 @@ charts = [
     ], data_collector_name="datacollector")
 ]
 
-# Enhanced model parameters with better defaults and ranges
 model_params = {
     "num_consumers": Slider(
         "Number of Consumers", 100, 10, 500, 10,
@@ -103,7 +98,6 @@ model_params = {
     )
 }
 
-# Create server with modified title
 server = ModularServer(
     EconomyModel,
     [grid] + charts,
