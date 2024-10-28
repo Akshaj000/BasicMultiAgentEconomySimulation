@@ -27,6 +27,8 @@ class Consumer(Agent):
         # Select a random firm to purchase from
         firms = [agent for agent in self.model.schedule.agents if isinstance(agent, Firm) and not agent.bankrupt]
         
+        if not firms:
+            return
         # Choose a random firm (either the employer if employed, or a random firm otherwise)
         firm_to_buy_from = self.employer if self.employer in firms else random.choice(firms)
         
@@ -64,7 +66,7 @@ class Consumer(Agent):
 
     def get_borrowing_limit(self):
         # Define a borrowing limit based on current money and satisfaction level.
-        max_borrowing_factor = 20.0  # Example factor
+        max_borrowing_factor = 2000.0  # Example factor
         return (self.money * max_borrowing_factor)  # Return remaining borrowing capacity
     
     def service_loans(self):

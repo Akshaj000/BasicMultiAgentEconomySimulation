@@ -93,7 +93,6 @@ charts = [
     ], data_collector_name="datacollector"),
     
     ChartModule([
-        {"Label": "Money Supply", "Color": "purple"},
         {"Label": "Total Loans", "Color": "brown"}
     ], data_collector_name="datacollector"),
     

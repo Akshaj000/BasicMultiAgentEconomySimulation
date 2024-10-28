@@ -53,7 +53,6 @@ class EconomyModel(Model):
                 "Average Satisfaction": self.get_average_satisfaction,
                 "Bankrupted Firms": lambda m: m.central_bank.bankrupted_firms,
                 "Bankrupted Consumers": lambda m: m.central_bank.bankrupted_consumers,
-                "Money Supply": lambda m: m.central_bank.money_supply,
                 "Total Loans": lambda m: m.central_bank.total_loans,
                 "Average Price": lambda m: self.get_average_price(),
                 "Economic Health Index": lambda m: self.get_economic_health_index(),
