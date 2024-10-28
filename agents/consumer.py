@@ -1,6 +1,6 @@
-# consumer.py
 from mesa import Agent
 from transactions import Transaction
+import random
 
 class Consumer(Agent):
     def __init__(self, unique_id, model, initial_money, satisfaction_threshold):
@@ -21,13 +21,26 @@ class Consumer(Agent):
             self.service_loans()
 
     def make_purchase(self):
-        # Simulate making a purchase
-        if self.employer:
-            purchase_amount = min(self.money, self.employer.price)
-            if purchase_amount > 0:
-                self.money -= purchase_amount
-                transaction = Transaction(self.employer, self, purchase_amount, 'purchase')
-                self.model.add_transaction(transaction)
+        # Perform the import here to avoid circular dependencies
+        from agents.firm import Firm
+
+        # Select a random firm to purchase from
+        firms = [agent for agent in self.model.schedule.agents if isinstance(agent, Firm) and not agent.bankrupt]
+        
+        # Choose a random firm (either the employer if employed, or a random firm otherwise)
+        firm_to_buy_from = self.employer if self.employer in firms else random.choice(firms)
+        
+        # Calculate purchase amount based on available money and firm's price
+        purchase_amount = min(self.money, firm_to_buy_from.price)
+        
+        if purchase_amount > 0:
+            # Deduct money from the consumer and add it to the firm's capital
+            self.money -= purchase_amount
+            firm_to_buy_from.capital += purchase_amount
+            
+            # Record the transaction
+            transaction = Transaction(firm_to_buy_from, self, purchase_amount, 'purchase')
+            self.model.add_transaction(transaction)
 
     def calculate_needed_capital(self):
         # Get the average price of goods from the model
@@ -51,18 +64,18 @@ class Consumer(Agent):
 
     def get_borrowing_limit(self):
         # Define a borrowing limit based on current money and satisfaction level.
-        max_borrowing_factor = 2.0  # Example factor
-        return (self.money * max_borrowing_factor) - self.debt  # Return remaining borrowing capacity
+        max_borrowing_factor = 20.0  # Example factor
+        return (self.money * max_borrowing_factor)  # Return remaining borrowing capacity
     
     def service_loans(self):
-        # Check if the consumer can pay for basic expenditures first
-        basic_expenditure = self.calculate_needed_capital()  # Use your existing method to determine needed capital for expenses
-        
-        if self.money < basic_expenditure:
-            # Request a loan if they can't cover basic expenditures
-            loan_needed = basic_expenditure - self.money
-            if loan_needed > self.get_borrowing_limit():  # Check if the loan needed is within borrowing limit
-                loan_needed = self.get_borrowing_limit()  # Cap it at borrowing limit
+    # Calculate the capital the consumer needs for basic expenditures
+        basic_expenditure = self.calculate_needed_capital()
+
+        # Calculate the loan needed if money is less than expenditure, else set it to zero
+        loan_needed = basic_expenditure - self.money*2
+
+        # Only request a loan if it is greater than zero and within borrowing limit
+        if loan_needed > 0 and loan_needed <= self.get_borrowing_limit():
             if self.request_loan(loan_needed):  # Attempt to request the loan
                 print(f"Consumer {self.unique_id} requested loan: {loan_needed}")
         else:
@@ -76,10 +89,12 @@ class Consumer(Agent):
                     self.bankrupt = True
                     return
                 else:
-                    self.money -= interest_payment  # Pay the interest
-                    self.debt = max(0,self.debt-interest_payment)  # Decrease debt
-                    self.model.central_bank.money_supply += interest_payment  # Add payment back to bank's supply
+                    # Pay interest and reduce debt
+                    self.money -= interest_payment
+                    self.debt = max(0, self.debt - interest_payment)
+                    self.model.central_bank.money_supply += interest_payment
                     print(f"Consumer {self.unique_id} repaid interest: {interest_payment}")
+
 
     def request_loan(self, amount):
         # Ensure the loan request is reasonable and the bank has enough funds
