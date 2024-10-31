@@ -58,6 +58,22 @@ class EconomyModel(Model):
                 "Economic Health Index": lambda m: self.get_economic_health_index(),
             }
         )
+    
+    def update_parameters(self, param_updates):
+        """Update simulation parameters dynamically"""
+        for param, value in param_updates.items():
+            if param in self.current_params:
+                self.current_params[param] = value
+                
+                # Handle specific parameter updates
+                if param == "base_interest_rate":
+                    self.central_bank.base_interest_rate = value
+                elif param == "bankruptcy_threshold":
+                    self.bankruptcy_threshold = value
+                elif param in ["num_consumers", "num_firms", "money_supply"]:
+                    # These require more complex updates
+                    self.handle_population_changes(param, value)
+
 
     def add_transaction(self, transaction):
         self.transactions.append(transaction)

@@ -91,6 +91,10 @@ charts = [
         {"Label": "Average Satisfaction", "Color": "green"},
         {"Label": "Average Price", "Color": "orange"}
     ], data_collector_name="datacollector"),
+
+        ChartModule([
+        {"Label": "Average Satisfaction", "Color": "green"},
+    ], data_collector_name="datacollector"),
     
     ChartModule([
         {"Label": "Total Loans", "Color": "brown"}
@@ -128,18 +132,18 @@ model_params = {
         "Initial Consumer Money", 2000, 500, 20000, 500,
         description="Initial money for each consumer"
     ),
-    "market_volatility": Slider(
-        "Market Volatility", 0.2, 0.0, 1.0, 0.05,
-        description="Market price volatility (0 = stable, 1 = volatile)"
-    ),
-    "bankruptcy_threshold": Slider(
-        "Bankruptcy Threshold", 0.3, 0.1, 0.9, 0.05,
-        description="Capital ratio threshold for bankruptcy (lower = stricter)"
-    ),
-    "satisfaction_threshold": Slider(
-        "Satisfaction Threshold", 0.5, 0.1, 0.9, 0.05,
-        description="Consumer satisfaction threshold for loyalty"
-    )
+    # "market_volatility": Slider(
+    #     "Market Volatility", 0.2, 0.0, 1.0, 0.05,
+    #     description="Market price volatility (0 = stable, 1 = volatile)"
+    # ),
+    # "bankruptcy_threshold": Slider(
+    #     "Bankruptcy Threshold", 0.3, 0.1, 0.9, 0.05,
+    #     description="Capital ratio threshold for bankruptcy (lower = stricter)"
+    # ),
+    # "satisfaction_threshold": Slider(
+    #     "Satisfaction Threshold", 0.5, 0.1, 0.9, 0.05,
+    #     description="Consumer satisfaction threshold for loyalty"
+    # )
 }
 
 network = NetworkModule(network_portrayal, 800, 800)
