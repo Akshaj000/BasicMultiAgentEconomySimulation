@@ -5,7 +5,7 @@ from agents.consumer import Consumer
 from transactions import Transaction
 
 class CentralBank(Agent):
-    def __init__(self, unique_id, model, initial_money_supply, base_interest_rate):
+    def __init__(self, unique_id, model, initial_money_supply, base_interest_rate,toggle):
         super().__init__(unique_id, model)
         self.money_supply = initial_money_supply
         self.base_interest_rate = base_interest_rate

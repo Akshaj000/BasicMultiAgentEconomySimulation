@@ -133,14 +133,16 @@ model_params = {
         "Initial Consumer Money", 2000, 500, 20000, 500,
         description="Initial money for each consumer"
     ),
-    "checkbox_active": {
-        "type": "CheckBox",
-        "name": "Activate Agents",
-        "value": False,
-        "description": "Toggle agent movement"
-    }
-
+    "firm_toggle": mesa.visualization.UserParam.Checkbox(
+        "Fixed Investment", True,
+        description="Toggle to control the investment of firms"
+    ),
+    "money_toggle": mesa.visualization.UserParam.Checkbox(
+        "Infinite Money", True,
+        description="Toggle to control the investment of firms"
+    )
 }
+
 
 network = NetworkModule(network_portrayal, 400, 400)
 

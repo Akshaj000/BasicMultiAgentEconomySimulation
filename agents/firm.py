@@ -5,7 +5,7 @@ from transactions import Transaction
 from agents.consumer import Consumer
 
 class Firm(Agent):
-    def __init__(self, unique_id, model, initial_capital, market_volatility):
+    def __init__(self, unique_id, model, initial_capital, market_volatility, toggle):
         super().__init__(unique_id, model)
         self.capital = initial_capital
         self.initial_capital = initial_capital
@@ -19,7 +19,8 @@ class Firm(Agent):
         self.wage = 2000  
         self.costs_history = []
         self.inventory_threshold = 5 
-        self.profit_margin = 0.1 
+        self.profit_margin = 0.1
+        self.toggle = toggle
 
     def step(self):
         """Perform a step for the firm, including production, wage adjustments, and loan servicing."""
@@ -60,12 +61,12 @@ class Firm(Agent):
         material_cost = self.production_capacity * 20
         total_cost = labor_cost + material_cost
 
-        if self.capital < total_cost * 1.5:
-            loan_amount = max(total_cost * 0.5, 1000)  # Cap loan amount to 50% of total cost
-            if not self.request_loan(loan_amount):
-                print(f"Firm {self.unique_id} failed to secure a loan before bankruptcy.")
-                self.bankrupt = True
-                return
+        # if self.capital < total_cost * 1.5:
+        #     loan_amount = max(total_cost * 0.5, 1000)  # Cap loan amount to 50% of total cost
+        #     if not self.request_loan(loan_amount):
+        #         print(f"Firm {self.unique_id} failed to secure a loan before bankruptcy.")
+        #         self.bankrupt = True
+        #         return
 
         if total_cost > self.capital:
             self.production_capacity = max(1, int(self.capital / (labor_cost + 50)))
@@ -97,13 +98,13 @@ class Firm(Agent):
             self.lay_off_employees()
             total_wages = sum(self.wage for _ in self.employees)
 
-        if total_wages > self.capital:
-            loan_amount = max(total_wages * 0.5, 1000)  # Cap loan to 50% of wages
-            if not self.request_loan(loan_amount):
-                print(f"Firm {self.unique_id} failed to secure a loan before bankruptcy.")
-                self.bankrupt = True
-                return
-            return
+        # if total_wages > self.capital:
+        #     loan_amount = max(total_wages * 0.5, 1000)  # Cap loan to 50% of wages
+        #     if not self.request_loan(loan_amount):
+        #         print(f"Firm {self.unique_id} failed to secure a loan before bankruptcy.")
+        #         self.bankrupt = True
+        #         return
+        #     return
 
         for employee in self.employees:
             self.capital -= self.wage
@@ -129,17 +130,7 @@ class Firm(Agent):
             self.model.central_bank.money_supply += interest_payment
             print(f"Firm {self.unique_id} paid {interest_payment} in loan interest.")
 
-    def request_loan(self, amount):
-        """Request a loan from the central bank."""
-        if self.model.central_bank.money_supply >= amount:
-            self.loans.append((amount, self.model.central_bank.base_interest_rate))
-            self.capital += amount
-            self.model.central_bank.money_supply -= amount
-            print(f"Firm {self.unique_id} received loan: {amount}")
-            return True
-        print(f"Firm {self.unique_id} failed to request loan: insufficient bank funds.")
-        return False
-
+    
     def lay_off_employees(self):
         """Lay off an employee if necessary."""
         if self.employees:
@@ -150,7 +141,7 @@ class Firm(Agent):
     def invest(self):
         """Invest in the firm's production capacity if capital allows."""
         if self.capital > 500 + self.wage * len(self.employees):
-            investment_amount = min(0.1 * self.capital, 500)
+            investment_amount = (min(0.1 * self.capital, 500) if self.toggle else max(0.1 * self.capital, 500))
             self.capital -= investment_amount
             self.production_capacity += investment_amount // 200
             print(f"Firm {self.unique_id} invested {investment_amount} to increase capacity to {self.production_capacity}")

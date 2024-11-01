@@ -9,11 +9,11 @@ import networkx as nx
 
 class EconomyModel(Model):
     def __init__(self, num_consumers, num_firms, initial_money_supply, 
-                 base_interest_rate, initial_firm_capital, 
-                 initial_consumer_money, market_volatility=0.2, 
+                 base_interest_rate, initial_firm_capital,
+                 initial_consumer_money,firm_toggle,money_toggle, market_volatility=0.2, 
                  bankruptcy_threshold=0.3, satisfaction_threshold=0.5, 
-                 width=20, height=20, checkbox_active=True):
-        super().__init__()
+                 width=20, height=20, **kwargs):
+        super().__init__(**kwargs)
         self.num_consumers = num_consumers
         self.num_firms = num_firms
         self.grid = MultiGrid(width, height, True)
@@ -22,12 +22,12 @@ class EconomyModel(Model):
         self.transactions = []
         self.G = nx.DiGraph()
 
-        self.central_bank = CentralBank(0, self, initial_money_supply, base_interest_rate)
+        self.central_bank = CentralBank(0, self, initial_money_supply, base_interest_rate,money_toggle)
         self.schedule.add(self.central_bank)
         self.G.add_node(0, type="bank")
 
         for i in range(num_firms):
-            firm = Firm(i + 1, self, initial_firm_capital, market_volatility)
+            firm = Firm(i + 1, self, initial_firm_capital, market_volatility,firm_toggle)
             self.schedule.add(firm)
             x, y = self.random.randrange(self.grid.width), self.random.randrange(self.grid.height)
             self.grid.place_agent(firm, (x, y))
