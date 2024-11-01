@@ -1,11 +1,12 @@
 # main.py
 from mesa.visualization.ModularVisualization import ModularServer
-from mesa.visualization.modules import ChartModule, CanvasGrid, TextElement
+from mesa.visualization.modules import ChartModule, CanvasGrid
 from mesa.visualization.UserParam import Slider
-from agents import Firm, CentralBank, Consumer
+from agents import Firm, Consumer
 from model import EconomyModel
 import numpy as np
 from mesa.visualization.modules import NetworkModule
+import mesa
 
 def network_portrayal(G):
     portrayal = {
@@ -74,7 +75,7 @@ def agent_portrayal(agent):
     return portrayal
 
 # Create canvas element with improved resolution
-grid = CanvasGrid(agent_portrayal, 20, 20, 600, 600)
+grid = CanvasGrid(agent_portrayal, 20, 20, 400, 400)
 
 charts = [
     ChartModule([
@@ -132,21 +133,17 @@ model_params = {
         "Initial Consumer Money", 2000, 500, 20000, 500,
         description="Initial money for each consumer"
     ),
-    # "market_volatility": Slider(
-    #     "Market Volatility", 0.2, 0.0, 1.0, 0.05,
-    #     description="Market price volatility (0 = stable, 1 = volatile)"
-    # ),
-    # "bankruptcy_threshold": Slider(
-    #     "Bankruptcy Threshold", 0.3, 0.1, 0.9, 0.05,
-    #     description="Capital ratio threshold for bankruptcy (lower = stricter)"
-    # ),
-    # "satisfaction_threshold": Slider(
-    #     "Satisfaction Threshold", 0.5, 0.1, 0.9, 0.05,
-    #     description="Consumer satisfaction threshold for loyalty"
-    # )
+    "checkbox_active": {
+        "type": "CheckBox",
+        "name": "Activate Agents",
+        "value": False,
+        "description": "Toggle agent movement"
+    }
+
 }
 
-network = NetworkModule(network_portrayal, 800, 800)
+network = NetworkModule(network_portrayal, 400, 400)
+
 
 server = ModularServer(
     EconomyModel,

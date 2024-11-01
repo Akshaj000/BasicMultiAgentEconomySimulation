@@ -1,3 +1,4 @@
+# firm.py
 from mesa import Agent
 import numpy as np
 from transactions import Transaction
@@ -15,12 +16,13 @@ class Firm(Agent):
         self.loans = []
         self.market_volatility = market_volatility
         self.bankrupt = False
-        self.wage = 2000  # Initial wage
+        self.wage = 2000  
         self.costs_history = []
-        self.inventory_threshold = 5  # Set a threshold for low inventory
-        self.profit_margin = 0.1  # Margin added to cover costs and control pricing inflation
+        self.inventory_threshold = 5 
+        self.profit_margin = 0.1 
 
     def step(self):
+        """Perform a step for the firm, including production, wage adjustments, and loan servicing."""
         if not self.bankrupt:
             if self.inventory < self.inventory_threshold:
                 self.produce()
@@ -31,11 +33,13 @@ class Firm(Agent):
             self.invest()
 
     def adjust_wages(self):
+        """Adjust the firm's wages based on inflation."""
         inflation_rate = self.model.central_bank.inflation_rate
         self.wage = max(0, self.wage * (1 + inflation_rate * 0.5))  # Scale inflation effect to control excess
         print(f"Firm {self.unique_id} adjusted wage to {self.wage}")
 
     def adjust_price(self):
+        """Adjust the firm's price based on various economic factors."""
         active_consumers = [agent for agent in self.model.schedule.agents if isinstance(agent, Consumer) and not agent.bankrupt]
         avg_consumer_money = sum(consumer.money for consumer in active_consumers) / len(active_consumers) if active_consumers else 0
 
@@ -51,6 +55,7 @@ class Firm(Agent):
         print(f"Firm {self.unique_id} adjusted price to {self.price}, minimum needed: {minimum_price}")
 
     def produce(self):
+        """Produce goods based on the firm's capacity and available capital."""
         labor_cost = sum(self.wage for _ in self.employees)
         material_cost = self.production_capacity * 20
         total_cost = labor_cost + material_cost
@@ -75,6 +80,7 @@ class Firm(Agent):
             print(f"Firm {self.unique_id} cannot afford to produce due to insufficient capital. Inventory: {self.inventory}, Capital: {self.capital}")
     
     def calculate_needed_capital(self):
+        """Calculate the total capital needed for the firm to operate."""
         total_wages = self.wage * len(self.employees)
         total_loan_payments = sum(amount * rate for amount, rate in self.loans)
         production_cost_per_step = (self.production_capacity * 20) + (self.wage * len(self.employees))
@@ -85,6 +91,7 @@ class Firm(Agent):
         return needed_capital
 
     def pay_wages(self):
+        """Pay wages to employees and handle cases where wages exceed available capital."""
         total_wages = sum(self.wage for _ in self.employees)
         while total_wages > self.capital and self.employees:
             self.lay_off_employees()
@@ -108,6 +115,7 @@ class Firm(Agent):
             print(f"Consumer {employee.unique_id} money: {employee.money}")
 
     def service_loans(self):
+        """Handle loan repayments for the firm."""
         for loan in self.loans[:]:
             amount, rate = loan
             interest_payment = amount * rate
@@ -122,6 +130,7 @@ class Firm(Agent):
             print(f"Firm {self.unique_id} paid {interest_payment} in loan interest.")
 
     def request_loan(self, amount):
+        """Request a loan from the central bank."""
         if self.model.central_bank.money_supply >= amount:
             self.loans.append((amount, self.model.central_bank.base_interest_rate))
             self.capital += amount
@@ -132,12 +141,14 @@ class Firm(Agent):
         return False
 
     def lay_off_employees(self):
+        """Lay off an employee if necessary."""
         if self.employees:
             employee_to_lay_off = self.employees.pop()
             employee_to_lay_off.employer = None
             print(f"Firm {self.unique_id} laid off an employee.")
 
     def invest(self):
+        """Invest in the firm's production capacity if capital allows."""
         if self.capital > 500 + self.wage * len(self.employees):
             investment_amount = min(0.1 * self.capital, 500)
             self.capital -= investment_amount
